@@ -25,7 +25,7 @@ def setup_parser(parser):
     parser.add_argument("--cam", default=0, help="use grad-cam on the val dataset", dest="cam")
     parser.add_argument(
         "--weights_path",
-        default="/data/aza_s/rsna_breast_cancer/outputs/tf_efficientnetv2_m_4_0/weights/tf_efficientnetv2_m_8_0.8061_0.3009.pth",
+        default="outputs/tf_efficientnetv2_l/1_1/weights/tf_efficientnetv2_l_8_0.7632_0.3733.pth",
         help="model weights path",
         dest="weights_path",
     )

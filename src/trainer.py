@@ -1,6 +1,7 @@
 import os
 import sys
 import shutil
+import glob
 import logging
 
 import mlflow
@@ -37,9 +38,10 @@ class Trainer:
     def create_result_dir(self):
         arch_name = self.config.experiment_name
         fold = self.config.fold
-        exp_number = self.config.exp_number
-        dir_name = f"{arch_name}_{exp_number}_{fold}"
+        dir_name = f"{arch_name}"
         dir_path = os.path.join(OUT_DIR, dir_name)
+        dirs_num = len(glob.glob(f"{dir_path}/*"))
+        dir_path = os.path.join(dir_path, f"{dirs_num}_{fold}")
         os.makedirs(dir_path, exist_ok=True)
         weights_path = os.path.join(dir_path, WEIGHTS)
         os.makedirs(weights_path, exist_ok=True)

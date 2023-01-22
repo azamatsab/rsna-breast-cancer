@@ -23,13 +23,26 @@ class BreastCancer(torch.utils.data.Dataset):
         self.transform = transform
         self.is_cam = config.cam
         self.fda = config.fda
+
+        if train:
+            logging.info("Train Dataset")
+        else:
+            logging.info("Val Dataset")
+
+        if "site_id" not in config:
+            logging.info("##### ATTENTION: USING ALL DATASET WITHOUT SPLITTING BY SITE ID")
+        else:
+            dataframe = dataframe[dataframe.site_id == config.site_id]
+            logging.info(f"##### ATTENTION: USING SITE ID {config.site_id}")
+
         dataframe = self.balancing(dataframe, config, train)
         dataframe = self.pretrain_finetune(dataframe, config, train)
         image_id = dataframe.image_id.tolist()
         patient_id = dataframe.patient_id.tolist()
         laterality = dataframe.laterality.tolist()
 
-        self.image_paths = [f"{pid}_{iid}.png" for pid, iid in zip(patient_id, image_id)]
+        self.image_paths = [f"{pid}/{iid}.png" for pid, iid in zip(patient_id, image_id)]
+        self.image_paths_ = [f"{pid}_{iid}.png" for pid, iid in zip(patient_id, image_id)]
         self.targets = dataframe.cancer.tolist()
         self.views = dataframe.view.tolist()
         self.prediction_id = [f"{pid}_{lat}.png" for pid, lat in zip(patient_id, laterality)]
@@ -67,6 +80,8 @@ class BreastCancer(torch.utils.data.Dataset):
             self.image_paths += ext_ds_paths
             self.targets += [1] * len(ext_ds_paths)
             self.prediction_id += ext_df.path_img.tolist()
+            self.laterality += ["R"] * len(ext_ds_paths)
+            logging.info(f"{len(ext_ds_paths)} external dataset images was added")
 
     def pretrain_finetune(self, dataframe, config, train):
         if train:
@@ -86,8 +101,9 @@ class BreastCancer(torch.utils.data.Dataset):
         path = self.image_paths[index]
         target = self.targets[index]
         pred_id = self.prediction_id[index]
-
+        print(os.path.join(self.img_path, path))
         img = cv2.imread(os.path.join(self.img_path, path))
+        #img = cv2.fastNlMeansDenoisingColored(img,None,10,10,3,3)
         if self.keep_ratio:
             img = pad(img, self.input_size)
 

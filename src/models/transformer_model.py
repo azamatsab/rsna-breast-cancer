@@ -12,18 +12,13 @@ from src.losses import FocalLoss
 from src.optimizers import CosineAnnealingWarmupRestarts
 from src.models.base_model import BaseModel
 from src.mixup import mixup, cutmix, cutmix_criterion
+from .nextvit import nextvit_base
 
 
-class TimmModel(BaseModel):
+class TRModel(BaseModel):
     def __init__(self, config):
         model_name = config["experiment_name"]
-        self.model = create_model(
-            model_name=model_name,
-            pretrained=True,
-            num_classes=1,
-            # in_chans=24,
-            drop_rate=0.8,
-        )
+        self.model = nextvit_base(pretrained=True)
         self.model = torch.nn.DataParallel(self.model)
         self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([config.pos_weight])).cuda()
         # self.criterion = FocalLoss(logits=True)
@@ -36,7 +31,7 @@ class TimmModel(BaseModel):
 
         self.ema = EMA(
                         self.model,
-                        beta = 0.99,              # exponential moving average factor
+                        beta = 0.98,              # exponential moving average factor
                         update_after_step = 1,    # only after this number of .update() calls will it start updating
                         update_every = 1,          # how often to actually update, to save on compute (updates every 10th .update() call)
                     )
@@ -95,42 +90,3 @@ class TimmModel(BaseModel):
         pred = torch.sigmoid(outputs).data.cpu().numpy()
         labels = labels.cpu().numpy().astype(int)
         return pred, labels
-
-    # def train_transform(self):
-    #     img_size = self.config["img_size"]
-    #     transform = A.Compose([
-    #             A.Resize(img_size[1], img_size[0]),
-    #             # A.RandomCrop(int(0.8 * img_size[1]), int(0.8 * img_size[0]), p=0.6),
-    #             # A.Resize(img_size[1], img_size[0]),
-    #             A.RandomBrightnessContrast(p=0.4, brightness_limit=0.25, contrast_limit=0.25),
-    #             A.HorizontalFlip(p=0.5),
-    #             A.OneOf([
-    #                 A.CLAHE(),
-    #                 A.RandomGamma()
-    #                 ], p=1.0
-    #             ),
-    #             A.ShiftScaleRotate(rotate_limit=15, scale_limit=0.2, shift_limit=0.1, p=0.9),
-    #             A.OneOf([
-    #                 A.Blur(blur_limit=7, p=1.0),
-    #                 A.MotionBlur(),
-    #                 A.GaussNoise(),
-    #                 A.ImageCompression(quality_lower=75)
-    #             ], p=0.5),
-
-    #             A.Cutout(num_holes=64, max_h_size=16, max_w_size=16, fill_value=250, p=0.65) if "cutout" not in self.config else A.Cutout(**self.config.cutout),
-    #             A.Normalize(),
-    #             ToTensorV2(),
-    #             ]
-    #         )
-    #     if "train_transform" in self.config:
-    #         transform = A.from_dict({"transform": self.config["train_transform"]})
-    #     return transform
-
-    # def test_transform(self):
-    #     img_size = self.config["img_size"]
-    #     transform = A.Compose(
-    #         [A.Resize(img_size[1], img_size[0], p=1.0), Normalize(p=1), ToTensorV2()], p=1
-    #     )
-    #     if "test_transform" in self.config:
-    #         transform = A.from_dict({"transform": self.config["test_transform"]})
-    #     return transform

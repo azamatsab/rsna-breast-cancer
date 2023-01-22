@@ -16,11 +16,11 @@ from .preprocess import pad
 class RandomPatchDataset(BreastCancer):
     def __init__(self, dataframe, config, transform=None, train=True):
         super().__init__(dataframe, config, transform, train)
-        patches = glob.glob("can_crops/*png")
+        patches = glob.glob("can_crops_filtered/*png")
         self.patches = []
         for patch in patches:
             name = os.path.split(patch)[1]
-            if name in set(self.image_paths):
+            if name in set(self.image_paths_):
                 self.patches.append(patch)
         logging.info(f"Patch size {len(self.patches)}")
 
@@ -36,8 +36,8 @@ class RandomPatchDataset(BreastCancer):
             if self.fda:
                 patch = aug(image=patch)["image"]
             pth, ptw = patch.shape[:2]
-            # pth = int(pth * np.random.uniform(0.5, 1.75))
-            # ptw = int(ptw * np.random.uniform(0.5, 1.75))
+            pth = int(pth * np.random.uniform(0.5, 1.75))
+            ptw = int(ptw * np.random.uniform(0.5, 1.75))
 
             if pth >= imh - 2 * pad_h:
                 pth = imh - 2 * pad_h - 1

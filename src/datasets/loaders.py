@@ -1,4 +1,5 @@
 import os
+import logging
 
 import torch
 import pandas as pd
@@ -27,7 +28,8 @@ def get_loaders(config, train_transform, test_transform):
     targets = [pid_to_tar[pid] for pid in pids]
     length = len(pids) // 10
     train, test = pids[:-length], pids[-length:]
-    skf = StratifiedKFold(n_splits=3, random_state=None)
+    skf = StratifiedKFold(n_splits=5, random_state=None)
+    logging.info(f"Training on fold {config.fold}")
     for i, (train_index, test_index) in enumerate(skf.split(pids, targets)):
         if i == config.fold:
             break

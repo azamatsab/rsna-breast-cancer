@@ -51,20 +51,19 @@ class BaseModel:
         transform = Compose(
             [
                 Resize(img_size[1], img_size[0], p=1.0),
-                # A.RandomCrop(int(0.8 * img_size[1]), int(0.8 * img_size[0]), p=0.6),
-                # A.Resize(img_size[1], img_size[0]),
                 HorizontalFlip(p=0.5),
                 A.VerticalFlip(p=0.5),
-                HueSaturationValue(p=0.6),
-                RandomBrightness(p=0.7),
+                # HueSaturationValue(p=0.6),
+                # RandomBrightness(p=0.7),
                 ShiftScaleRotate(p=0.9),
-                RandomGamma(p=0.4),
-                # Cutout(p=0.7, num_holes=12, max_h_size=8, max_w_size=8) if "cutout" not in self.config else Cutout(**self.config.cutout),
+                # RandomGamma(p=0.4),
+                Cutout(**self.config.cutout),
                 Normalize(p=1),
                 ToTensorV2(),
             ],
             p=1,
         )
+
         if "train_transform" in self.config:
             transform = A.from_dict({"transform": self.config["train_transform"]})
         return transform

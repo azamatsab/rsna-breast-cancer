@@ -17,15 +17,30 @@ def pfbeta_np(labels, preds, beta=1):
     return 0.0
 
 def get_best_f1(labels, preds, beta=1):
-    threshs = np.arange(0, 1, 0.02)
+    # threshs = np.arange(0, 1, 0.02)
+    # best_score = 0
+    # best_thr = 0
+    # scores = []
+    # for thresh in threshs:
+    #     score = pfbeta_np(labels, preds > thresh, beta)
+    #     if score > best_score:
+    #         best_score = score
+    #         best_thr = thresh
+    #     scores.append(score)
+
+    percentiles = np.arange(0, 100, 0.1)
+    threshs = [np.percentile(preds, perc) for perc in percentiles]
     best_score = 0
     best_thr = 0
+    best_perc = 0
     scores = []
-    for thresh in threshs:
+    for perc in percentiles:
+        thresh = np.percentile(preds, perc)
         score = pfbeta_np(labels, preds > thresh, beta)
         if score > best_score:
             best_score = score
             best_thr = thresh
+            best_perc = perc
         scores.append(score)
 
     try:
@@ -41,15 +56,13 @@ def get_best_f1(labels, preds, beta=1):
     res = OrderedDict(
         [
             ("F1", round(best_score, 4)),
+            ("percentile", round(best_perc, 4)),
             ("thresh", round(best_thr, 4)),
             ("ROC_AUC", round(roc_auc, 4)),
             ("rec_1", round(rec_1, 4)),
             ("prc_1", round(prc_1, 4)),
         ]
     )
-
-    # for thr, score in zip(threshs, scores):
-    #     res[f"{round(thr, 3)}"] = round(score, 3)
 
     return res
 

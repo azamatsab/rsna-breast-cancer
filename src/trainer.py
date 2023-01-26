@@ -90,7 +90,11 @@ class Trainer:
                     self.scheduler.step()
             else:
                 with torch.no_grad():
-                    loss, outputs = self.model.iteration(data, train, ema=ema)
+                    if "tta" in self.config and self.config.tta:
+                        loss, outputs = self.model.tta(data)
+                    else:
+                        loss, outputs = self.model.iteration(data, train, ema=ema)
+
             batch_idx += 1
             labels = data["target"] if isinstance(data, dict) else data[1]
 
@@ -137,7 +141,7 @@ class Trainer:
                     self.model, train_loader, train=True, scale_factor=scale_factor
                 )
                 self._print_result("Train", train_res)
-                self.model.ema_update()
+                # self.model.ema_update()
                 logging.info("Validation:")
                 val_res = self.run_epoch(
                     self.model, valid_loader, train=False, scale_factor=scale_factor

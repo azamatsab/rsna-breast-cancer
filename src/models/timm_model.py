@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 import torch
+import torchvision.transforms.functional as TF
 from timm.models import create_model
 from ema_pytorch import EMA
 import albumentations as A
@@ -33,13 +34,14 @@ class TimmModel(BaseModel):
         self.device = torch.device(config["device"])
         self.model.to(self.device)
         self.config = config
+        self.scheduler = None
 
-        self.ema = EMA(
-                        self.model,
-                        beta = 0.99,              # exponential moving average factor
-                        update_after_step = 1,    # only after this number of .update() calls will it start updating
-                        update_every = 1,          # how often to actually update, to save on compute (updates every 10th .update() call)
-                    )
+        # self.ema = EMA(
+        #                 self.model,
+        #                 beta = 0.99,              # exponential moving average factor
+        #                 update_after_step = 1,    # only after this number of .update() calls will it start updating
+        #                 update_every = 1,          # how often to actually update, to save on compute (updates every 10th .update() call)
+        #             )
 
     def set_scheduler(self, length):
         if "first_cycle_steps" in self.config.sch_params:
@@ -95,6 +97,22 @@ class TimmModel(BaseModel):
         pred = torch.sigmoid(outputs).data.cpu().numpy()
         labels = labels.cpu().numpy().astype(int)
         return pred, labels
+
+    def tta(self, data):
+        img = data["img"]
+        hflip = TF.hflip(img)
+        vflip = TF.vflip(img)
+
+        loss, outputs = self.iteration(data, False, False)
+
+        data["img"] = hflip
+        loss, outputs_h = self.iteration(data, False, False)
+
+        # data["img"] = vflip
+        # loss, outputs_v = self.iteration(data, False, False)
+        # return loss, (outputs + outputs_h + outputs_v) / 3
+        return loss, (outputs + outputs_h) / 2
+        
 
     # def train_transform(self):
     #     img_size = self.config["img_size"]

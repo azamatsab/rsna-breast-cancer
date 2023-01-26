@@ -12,13 +12,13 @@ from src.losses import FocalLoss
 from src.optimizers import CosineAnnealingWarmupRestarts
 from src.models.base_model import BaseModel
 from src.mixup import mixup, cutmix, cutmix_criterion
-from .nextvit import nextvit_base
+from .nextvit import nextvit_base, nextvit_small
 
 
 class TRModel(BaseModel):
     def __init__(self, config):
         model_name = config["experiment_name"]
-        self.model = nextvit_base(pretrained=True)
+        self.model = nextvit_small(pretrained=True)
         self.model = torch.nn.DataParallel(self.model)
         self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([config.pos_weight])).cuda()
         # self.criterion = FocalLoss(logits=True)
@@ -29,14 +29,17 @@ class TRModel(BaseModel):
         self.model.to(self.device)
         self.config = config
 
-        self.ema = EMA(
-                        self.model,
-                        beta = 0.98,              # exponential moving average factor
-                        update_after_step = 1,    # only after this number of .update() calls will it start updating
-                        update_every = 1,          # how often to actually update, to save on compute (updates every 10th .update() call)
-                    )
+        # self.ema = EMA(
+        #                 self.model,
+        #                 beta = 0.98,              # exponential moving average factor
+        #                 update_after_step = 1,    # only after this number of .update() calls will it start updating
+        #                 update_every = 1,          # how often to actually update, to save on compute (updates every 10th .update() call)
+        #             )
 
     def set_scheduler(self, length):
+        if "sch_params" not in self.config:
+            self.scheduler = None
+            return
         if "first_cycle_steps" in self.config.sch_params:
             self.config.sch_params.first_cycle_steps *= length
             logging.info(f"first_cycle_steps set to {self.config.sch_params.first_cycle_steps}")

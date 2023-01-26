@@ -30,7 +30,7 @@ class BreastCancer(torch.utils.data.Dataset):
             logging.info("Val Dataset")
 
         if "site_id" not in config:
-            logging.info("##### ATTENTION: USING ALL DATASET WITHOUT SPLITTING BY SITE ID")
+            logging.info("##### ATTENTION: USING FULL DATASET WITHOUT SPLITTING BY SITE ID")
         else:
             dataframe = dataframe[dataframe.site_id == config.site_id]
             logging.info(f"##### ATTENTION: USING SITE ID {config.site_id}")

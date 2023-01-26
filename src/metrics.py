@@ -17,17 +17,7 @@ def pfbeta_np(labels, preds, beta=1):
     return 0.0
 
 def get_best_f1(labels, preds, beta=1):
-    # threshs = np.arange(0, 1, 0.02)
-    # best_score = 0
-    # best_thr = 0
-    # scores = []
-    # for thresh in threshs:
-    #     score = pfbeta_np(labels, preds > thresh, beta)
-    #     if score > best_score:
-    #         best_score = score
-    #         best_thr = thresh
-    #     scores.append(score)
-
+    # preds = np.power(preds, 0.5)
     percentiles = np.arange(0, 100, 0.1)
     threshs = [np.percentile(preds, perc) for perc in percentiles]
     best_score = 0
@@ -76,8 +66,8 @@ def cacl_all_metrics(labels, preds, ids, beta=1):
     
     agg_labels, agg_preds = [], []
     for pred_id in ids:
-        agg_preds.append(np.max(preds_dict[pred_id]))
-        agg_labels.append(np.max(targ_dict[pred_id]))
+        agg_preds.append(np.mean(preds_dict[pred_id]))
+        agg_labels.append(targ_dict[pred_id][0])
     agg_labels, agg_preds = np.array(agg_labels), np.array(agg_preds)
 
     res_single = get_best_f1(labels, preds, beta=1)
@@ -87,8 +77,6 @@ def cacl_all_metrics(labels, preds, ids, beta=1):
     for key in res_agg:
         res_single[key + agg_str] = res_agg[key]
 
-    # thr = res_single["thresh"]
-    # res_single[f"F1_{thr}"] = round(pfbeta_np(agg_labels, agg_preds > thr, beta), 4)
     return res_single
 
 

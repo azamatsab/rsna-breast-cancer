@@ -108,47 +108,7 @@ class TimmModel(BaseModel):
         data["img"] = hflip
         loss, outputs_h = self.iteration(data, False, False)
 
-        # data["img"] = vflip
-        # loss, outputs_v = self.iteration(data, False, False)
-        # return loss, (outputs + outputs_h + outputs_v) / 3
-        return loss, (outputs + outputs_h) / 2
-        
-
-    # def train_transform(self):
-    #     img_size = self.config["img_size"]
-    #     transform = A.Compose([
-    #             A.Resize(img_size[1], img_size[0]),
-    #             # A.RandomCrop(int(0.8 * img_size[1]), int(0.8 * img_size[0]), p=0.6),
-    #             # A.Resize(img_size[1], img_size[0]),
-    #             A.RandomBrightnessContrast(p=0.4, brightness_limit=0.25, contrast_limit=0.25),
-    #             A.HorizontalFlip(p=0.5),
-    #             A.OneOf([
-    #                 A.CLAHE(),
-    #                 A.RandomGamma()
-    #                 ], p=1.0
-    #             ),
-    #             A.ShiftScaleRotate(rotate_limit=15, scale_limit=0.2, shift_limit=0.1, p=0.9),
-    #             A.OneOf([
-    #                 A.Blur(blur_limit=7, p=1.0),
-    #                 A.MotionBlur(),
-    #                 A.GaussNoise(),
-    #                 A.ImageCompression(quality_lower=75)
-    #             ], p=0.5),
-
-    #             A.Cutout(num_holes=64, max_h_size=16, max_w_size=16, fill_value=250, p=0.65) if "cutout" not in self.config else A.Cutout(**self.config.cutout),
-    #             A.Normalize(),
-    #             ToTensorV2(),
-    #             ]
-    #         )
-    #     if "train_transform" in self.config:
-    #         transform = A.from_dict({"transform": self.config["train_transform"]})
-    #     return transform
-
-    # def test_transform(self):
-    #     img_size = self.config["img_size"]
-    #     transform = A.Compose(
-    #         [A.Resize(img_size[1], img_size[0], p=1.0), Normalize(p=1), ToTensorV2()], p=1
-    #     )
-    #     if "test_transform" in self.config:
-    #         transform = A.from_dict({"transform": self.config["test_transform"]})
-    #     return transform
+        data["img"] = vflip
+        loss, outputs_v = self.iteration(data, False, False)
+        return loss, (outputs + outputs_h + outputs_v) / 3
+        # return loss, (outputs + outputs_h) / 2

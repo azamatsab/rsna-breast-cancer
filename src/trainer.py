@@ -7,6 +7,7 @@ import logging
 import mlflow
 import torch
 import torch.nn.functional as F
+import numpy as np
 from torch.cuda.amp import GradScaler, autocast
 from tqdm import tqdm
 
@@ -14,7 +15,8 @@ from src.metrics import AverageMeter, MetricCalculator
 
 logging.basicConfig(level=logging.INFO)
 
-torch.manual_seed(84)
+torch.manual_seed(42)
+np.random.seed(42)
 
 OUT_DIR = "outputs"
 WEIGHTS = "weights"

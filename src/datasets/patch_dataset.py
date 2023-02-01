@@ -16,16 +16,22 @@ from .preprocess import pad
 class RandomPatchDataset(BreastCancer):
     def __init__(self, dataframe, config, transform=None, train=True):
         super().__init__(dataframe, config, transform, train)
-        patches = glob.glob("can_crops_filtered/*png")
-        self.patches = []
+        if self.config.patch_prob > 0:
+            logging.info("##### Training using patches")
+        patches = glob.glob("can_cam/*png")
+        self.patches = [[], []]
         for patch in patches:
             name = os.path.split(patch)[1]
-            if name in set(self.image_paths_):
-                self.patches.append(patch)
-        logging.info(f"Patch size {len(self.patches)}")
+            if name in set(self.siteid1):
+                self.patches[0].append(patch)
+            elif name in set(self.siteid2):
+                self.patches[1].append(patch)
 
-    def insert_patch(self, img, laterality):
-        patches = np.random.choice(self.patches, size=np.random.randint(1, 3))
+        logging.info(f"Patch size for site id 1: {len(self.patches[0])}")
+        logging.info(f"Patch size for site id 2: {len(self.patches[1])}")
+
+    def insert_patch(self, img, laterality, site_id):
+        patches = np.random.choice(self.patches[site_id - 1], size=np.random.randint(1, 3))
         if self.fda:
             aug = A.Compose([A.FDA([img], p=1, read_fn=lambda x: x)])
         imh, imw = img.shape[:2]
@@ -59,6 +65,7 @@ class RandomPatchDataset(BreastCancer):
         target = self.targets[index]
         pred_id = self.prediction_id[index]
         laterality = self.laterality[index]
+        site_id = self.site_ids[index]
 
         img = cv2.imread(os.path.join(self.img_path, path))
         if self.keep_ratio:
@@ -66,7 +73,7 @@ class RandomPatchDataset(BreastCancer):
 
         if self.train and target == 0 and np.random.uniform(0, 1) <= self.config.patch_prob:
             target = 1
-            img = self.insert_patch(img, laterality)
+            img = self.insert_patch(img, laterality, site_id)
 
         if self.transform is not None:
             try:
@@ -76,7 +83,7 @@ class RandomPatchDataset(BreastCancer):
 
         out = {"img": sample, "target": target, "pred_id": pred_id}
         if self.is_cam:
-            out["bgr"] = cv2.resize(img, (512, 1024))
+            out["bgr"] = cv2.resize(img, self.input_size)
             out["path"] = path
         return out
 
@@ -106,6 +113,6 @@ class PatchDataset(BreastCancer):
 
         out = {"img": sample, "target": target, "pred_id": pred_id}
         if self.is_cam:
-            out["bgr"] = cv2.resize(img, (512, 1024))
+            out["bgr"] = cv2.resize(img, self.input_size)
             out["path"] = path
         return out

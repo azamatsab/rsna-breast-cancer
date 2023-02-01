@@ -24,10 +24,10 @@ def setup_parser(parser):
     parser.add_argument("--resume", default=0, help="continue training", dest="resume")
     parser.add_argument("--cam", default=0, help="use grad-cam on the val dataset", dest="cam")
     parser.add_argument(
-        "--weights_path",
-        default="outputs/tf_efficientnetv2_s/87_1/weights/swa.pth",
+        "--weights",
+        default="outputs/tf_efficientnetv2_m/3_0/weights/f0_v2m_swa.pth",
         help="model weights path",
-        dest="weights_path",
+        dest="weights",
     )
     return parser
 
@@ -53,46 +53,25 @@ if __name__ == "__main__":
     test_tr = model.test_transform()
 
     if args.cam:
-        config["batch_size"] = 4
-        _, test_loader = get_loaders(config, train_tr, test_tr)
-        model.load(args.weights_path)
-        cam = CamCalculator(config, model)
-        cam.calculate_cam(test_loader)
+        config["batch_size"] = 2
+        for i in range(0, 5):
+            config["fold"] = i
+            _, test_loader = get_loaders(config, train_tr, test_tr)
+            model.load(args.weights)
+            cam = CamCalculator(config, model, "cam_fp")
+            # cam.cam_to_image("cam_fold0_until_0.65/13101_345896545/orig.png")
+            cam.calculate_cam(test_loader)
     elif args.eval:
-        # paths = [
-        #     "outputs/tf_efficientnetv2_s/43_0/weights/swa.pth",
-        #     "outputs/tf_efficientnetv2_s/43_0/weights/tf_efficientnetv2_s_7_0.7637_0.441.pth",
-        #     "outputs/tf_efficientnetv2_s/43_0/weights/tf_efficientnetv2_s_8_0.769_0.4343.pth",
-        #     "outputs/tf_efficientnetv2_s/43_0/weights/tf_efficientnetv2_s_9_0.7623_0.4365.pth",
-        #     "outputs/tf_efficientnetv2_s/43_0/weights/tf_efficientnetv2_s_10_0.766_0.441.pth",
-        #     "outputs/tf_efficientnetv2_s/43_0/weights/tf_efficientnetv2_s_11_0.7739_0.4435.pth",
-        #     "outputs/tf_efficientnetv2_s/43_0/weights/tf_efficientnetv2_s_12_0.7656_0.4411.pth",
-        #     "outputs/tf_efficientnetv2_s/43_0/weights/tf_efficientnetv2_s_13_0.7714_0.4544.pth",
-        #     "outputs/tf_efficientnetv2_s/43_0/weights/tf_efficientnetv2_s_14_0.7663_0.438.pth",
-        #     "outputs/tf_efficientnetv2_s/43_0/weights/tf_efficientnetv2_s_15_0.774_0.4374.pth",
-        #     "outputs/tf_efficientnetv2_s/43_0/weights/tf_efficientnetv2_s_16_0.7749_0.4411.pth"
-        # ]
-        # for weights_path in paths:
-        #     print(weights_path)
-        #     for site in [1, 2]:
-        #         config["site_id"] = site
-        #         _, test_loader = get_loaders(config, train_tr, test_tr)
-        #         # model.load(args.weights_path)
-        #         model.load(weights_path)
-        #         trainer = Trainer(model, config)
-        #         trainer.evaluate(test_loader)
-
         # config["tta"] = 1
         _, test_loader = get_loaders(config, train_tr, test_tr)
-        model.load(args.weights_path)
+        model.load(args.weights)
         trainer = Trainer(model, config)
         trainer.evaluate(test_loader)
-
     else:
         train_loader, test_loader = get_loaders(config, train_tr, test_tr)
         model.set_scheduler(len(train_loader))
         if args.resume:
-            model.load(args.weights_path)
+            model.load(args.weights)
 
         trainer = Trainer(model, config)
         trainer.run(train_loader, test_loader)

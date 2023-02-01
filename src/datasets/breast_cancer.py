@@ -35,6 +35,8 @@ class BreastCancer(torch.utils.data.Dataset):
             dataframe = dataframe[dataframe.site_id == config.site_id]
             logging.info(f"##### ATTENTION: USING SITE ID {config.site_id}")
 
+        # dataframe = dataframe[dataframe.cancer == 0]
+
         dataframe = self.balancing(dataframe, config, train)
         dataframe = self.pretrain_finetune(dataframe, config, train)
         image_id = dataframe.image_id.tolist()
@@ -42,7 +44,18 @@ class BreastCancer(torch.utils.data.Dataset):
         laterality = dataframe.laterality.tolist()
 
         self.image_paths = [f"{pid}/{iid}.png" for pid, iid in zip(patient_id, image_id)]
-        self.image_paths_ = [f"{pid}_{iid}.png" for pid, iid in zip(patient_id, image_id)]
+
+        image_paths_ = [f"{pid}_{iid}.png" for pid, iid in zip(patient_id, image_id)]
+        self.site_ids = dataframe.site_id.tolist()
+
+        self.siteid1 = []
+        self.siteid2 = []
+        for sid, imp in zip(self.site_ids, image_paths_):
+            if sid == 1:
+                self.siteid1.append(imp)
+            else:
+                self.siteid2.append(imp)
+        
         self.targets = dataframe.cancer.tolist()
         self.views = dataframe.view.tolist()
         self.prediction_id = [f"{pid}_{lat}.png" for pid, lat in zip(patient_id, laterality)]
@@ -53,7 +66,10 @@ class BreastCancer(torch.utils.data.Dataset):
         self.add_ext_dataset(train, config)
         self.config = config
 
-        print("Disease:", self.targets.count(1), "Safe:", self.targets.count(0))
+        logging.info(f"Disease: {self.targets.count(1)}; Safe: {self.targets.count(0)}")
+        mids = dataframe.machine_id.tolist()
+        for mid in set(mids):
+            logging.info(f"Machine id: {mid}: {mids.count(mid)}")
 
     def balancing(self, dataframe, config, train):
         if train and config.upsample:
@@ -101,9 +117,8 @@ class BreastCancer(torch.utils.data.Dataset):
         path = self.image_paths[index]
         target = self.targets[index]
         pred_id = self.prediction_id[index]
-        print(os.path.join(self.img_path, path))
         img = cv2.imread(os.path.join(self.img_path, path))
-        #img = cv2.fastNlMeansDenoisingColored(img,None,10,10,3,3)
+        #img = cv2.fastNlMeansDenoisingColored(img, None, 10, 10, 3, 3)
         if self.keep_ratio:
             img = pad(img, self.input_size)
 
@@ -115,6 +130,6 @@ class BreastCancer(torch.utils.data.Dataset):
 
         out = {"img": sample, "target": target, "pred_id": pred_id}
         if self.is_cam:
-            out["bgr"] = cv2.resize(img, (512, 1024))
+            out["bgr"] = cv2.resize(img, self.input_size)
             out["path"] = path
         return out

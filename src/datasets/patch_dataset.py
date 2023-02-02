@@ -81,7 +81,7 @@ class RandomPatchDataset(BreastCancer):
             except Exception as err:
                 logging.error(f"Error Occured: {err}, {path}")
 
-        out = {"img": sample, "target": target, "pred_id": pred_id}
+        out = {"img": sample, "target": target, "pred_id": pred_id, "view": self.views[index]}
         if self.is_cam:
             out["bgr"] = cv2.resize(img, self.input_size)
             out["path"] = path

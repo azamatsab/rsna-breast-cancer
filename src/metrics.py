@@ -56,7 +56,7 @@ def get_best_f1(labels, preds, beta=1):
 
     return res
 
-def cacl_all_metrics(labels, preds, ids, beta=1):
+def calc_all_metrics(labels, preds, ids, views, beta=1):
     preds_dict = {pred_id: [] for pred_id in ids}
     targ_dict = {pred_id: [] for pred_id in ids}
 
@@ -65,7 +65,7 @@ def cacl_all_metrics(labels, preds, ids, beta=1):
         targ_dict[pred_id].append(target)
     
     agg_labels, agg_preds = [], []
-    for pred_id in ids:
+    for pred_id in preds_dict:
         agg_preds.append(np.mean(preds_dict[pred_id]))
         agg_labels.append(targ_dict[pred_id][0])
     agg_labels, agg_preds = np.array(agg_labels), np.array(agg_preds)
@@ -112,10 +112,12 @@ class MetricCalculator:
         self.preds = []
         self.target = []
         self.ids = []
+        self.views = []
 
-    def add(self, preds, target, ids):
+    def add(self, preds, target, ids, views):
         self.target.extend(target)
         self.ids.extend(ids)
+        self.views.extend(views)
 
         if isinstance(preds, dict):
             if len(self.preds) == 0:
@@ -130,7 +132,7 @@ class MetricCalculator:
         if isinstance(self.preds, dict):
             result = OrderedDict()
             for key in self.preds:
-                result[key] = cacl_all_metrics(np.array(self.target), np.array(self.preds[key], self.ids))
+                result[key] = calc_all_metrics(np.array(self.target), np.array(self.preds[key]), self.ids, self.views)
         else:
-            result = cacl_all_metrics(np.array(self.target), np.array(self.preds), self.ids)
+            result = calc_all_metrics(np.array(self.target), np.array(self.preds), self.ids, self.views)
         return result

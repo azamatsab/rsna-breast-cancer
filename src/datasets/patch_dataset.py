@@ -43,6 +43,11 @@ class RandomPatchDataset(BreastCancer):
         pad_x = imw // 3
 
         patch = cv2.imread(patch_path)
+        flags = [None, cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_180, cv2.ROTATE_90_COUNTERCLOCKWISE]
+        degree = np.random.choice(flags)
+        if degree is not None:
+            patch = cv2.rotate(src, degree)
+
         if self.fda:
             patch = aug(image=patch)["image"]
         pth, ptw = patch.shape[:2]
@@ -98,10 +103,8 @@ class RandomPatchDataset(BreastCancer):
             if np.random.uniform(0, 1) <= self.config.patch_prob:
                 target = 1
                 img = self.insert_patches(img, laterality, site_id, self.patches)
-                cv2.imwrite(f"{np.random.uniform(0, 1)}_{site_id}.png", img)
             elif np.random.uniform(0, 1) <= self.config.neg_patch_prob:
                 img = self.insert_patches(img, laterality, site_id, self.neg_patches)
-                cv2.imwrite(f"{np.random.uniform(0, 1)}_{site_id}.png", img)
 
         if self.transform is not None:
             try:

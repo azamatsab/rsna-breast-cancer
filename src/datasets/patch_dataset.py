@@ -46,7 +46,7 @@ class RandomPatchDataset(BreastCancer):
         flags = [None, cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_180, cv2.ROTATE_90_COUNTERCLOCKWISE]
         degree = np.random.choice(flags)
         if degree is not None:
-            patch = cv2.rotate(src, degree)
+            patch = cv2.rotate(patch, degree)
 
         if self.fda:
             patch = aug(image=patch)["image"]

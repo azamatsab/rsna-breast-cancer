@@ -1,0 +1,68 @@
+model: TimmModel
+experiment_name: "tf_efficientnetv2_s"
+exp_number: 25
+fold: 0
+dataset: RandomPatchDataset
+patch_path: can_cam_v2m_f3
+neg_patch_path: can_cam_v2m_f3
+# site_id: 2
+
+device: cuda
+epochs: 30
+epoch_len: 100000000
+batch_size: 4
+accum_iter: 16
+img_size: [1024, 2048]   # x, y
+progressive_resize: []
+keep_ratio: False
+optimizer: SGD
+opt_params: {lr: 0.01, momentum: 0.9}
+
+scheduler: CosineAnnealingWarmupRestarts
+sch_params: {
+        first_cycle_steps: 1,
+        cycle_mult: 1.0,
+        max_lr: 0.01,
+        min_lr: 0.000001,
+        }
+
+label_smoothing: 0
+scheduler_step: 0
+scheduler_batch_step: 1
+
+calculate_metric_step: 1
+pos_weight: 1.0
+ohem_ratio: 1.0
+num_workers: 16
+balance: 0
+balanced_batch: 0
+upsample: 5
+thresh: 0.5
+
+csv_path: train.csv
+root_path: /data/aza_s
+ds_path: /data/aza_s/rsna_breast_cancer/ims_2048/data/new_roi_train_images
+
+ext_dataset: False
+ext_ds_root: "/data/zhan/compets/rsna_breast/data/TheChineseMammographyDatabase/ROI"
+pretrain: False
+finetune: False
+default_age: 40
+
+# Mixup
+mixup_alpha: 0.3
+mixup_prob: 1.0
+
+cutmix_prob: -1
+
+cutout: {
+        p: 0.0,
+        num_holes: 32, 
+        max_h_size: 32, 
+        max_w_size: 32
+}
+
+fda: 0
+patch_prob: 0.5
+neg_patch_prob: 0.25
+crop_prob: 0.5

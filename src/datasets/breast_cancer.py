@@ -51,11 +51,11 @@ class BreastCancer(torch.utils.data.Dataset):
         self.siteid1 = []
         self.siteid2 = []
         for sid, imp in zip(self.site_ids, image_paths_):
-            if sid == 1:
+            if int(sid) == 1:
                 self.siteid1.append(imp)
             else:
                 self.siteid2.append(imp)
-        
+
         self.targets = dataframe.cancer.tolist()
         self.views = dataframe.view.tolist()
         self.prediction_id = [f"{pid}_{lat}.png" for pid, lat in zip(patient_id, laterality)]

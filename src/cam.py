@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 
 
-def gradcam2bbox(gradcam, thr=0.3):
+def gradcam2bbox(gradcam, thr=0.7):
     # Binarize the image
     mask = (gradcam > thr).astype("uint8")
 
@@ -68,6 +68,7 @@ class CamCalculator:
 
     def calculate_cam(self, loader):
         counter = 0
+        good_counter = 0
         for data in tqdm(loader):
             input_tensor = data["img"]
             targets = data["target"]
@@ -86,12 +87,17 @@ class CamCalculator:
                 except:
                     counter += 1
                     continue
+
+                if np.mean(ithimg[y1:y2, x1:x2]) < 100:
+                    counter += 1
+                    continue
+
                 visualization = show_cam_on_image(cv2.cvtColor(ithimg, cv2.COLOR_BGR2RGB) / 255, cam_img, use_rgb=True)
                 img_name = data["path"][i].replace("/", "_")
                 folder = img_name[:-4]
                 target = targets[i]
                 pred = round(preds[i][0], 2)
-                if pred > 0.65:
+                if pred < 0.1:
                     root = os.path.join(self.root, folder)
                     os.makedirs(root, exist_ok=True)
                     vis_name = f"{target}_{pred}_{img_name}"
@@ -111,4 +117,6 @@ class CamCalculator:
                     path = os.path.join(root, orig_name)
                     cv2.rectangle(ithimg, (x1, y1), (x2, y2), (255, 0, 0), 2)
                     cv2.imwrite(path, ithimg)
-        print(counter)
+                    good_counter += 1
+        print("not found:", counter)
+        print("saved:", good_counter)

@@ -18,7 +18,7 @@ def get_loaders(config, train_transform, test_transform):
     df_all = pd.read_csv(config.csv_path)
     df_all = df_all.fillna(config.default_age)
     
-    if False:
+    if True:
         pid_to_tar = {}
         targets = df_all.cancer.tolist()
         pids = df_all.patient_id.tolist()

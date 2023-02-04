@@ -3,6 +3,7 @@ from collections import OrderedDict
 
 from sklearn import metrics
 import numpy as np
+import pandas as pd
 
 
 def pfbeta_np(labels, preds, beta=1):
@@ -58,41 +59,23 @@ def get_best_f1(labels, preds, beta=1):
     return res
 
 def agg_default(labels, preds, ids, views):
-    preds_dict = {pred_id: [] for pred_id in set(ids)}
-    targ_dict = {pred_id: [] for pred_id in set(ids)}
+    df_test = pd.DataFrame({"prediction_id": ids, "view": views, "cancer": list(preds), "target": list(labels)})
+    df_sub = df_test.groupby("prediction_id")[["cancer"]].mean()
+    df_trg = df_test.groupby("prediction_id")[["target"]].mean()
+    agg_labels = df_trg.target.tolist()
+    agg_preds = df_sub.cancer.tolist()
 
-    for pred_id, pred, target in zip(ids, preds, labels):
-        preds_dict[pred_id].append(pred)
-        targ_dict[pred_id].append(target)
-    
-    agg_labels, agg_preds = [], []
-    for pred_id in preds_dict:
-        agg_preds.append(np.mean(preds_dict[pred_id]))
-        agg_labels.append(targ_dict[pred_id][0])
     agg_labels, agg_preds = np.array(agg_labels), np.array(agg_preds)
     return agg_labels, agg_preds
 
 def agg_custom_1(labels, preds, ids, views):
-    preds_dict_mlo = {pred_id: [] for pred_id in set(ids)}
-    preds_dict_cc = {pred_id: [] for pred_id in set(ids)}
-    targ_dict = {pred_id: [] for pred_id in set(ids)}
-
-    for pred_id, pred, target, view in zip(ids, preds, labels, views):
-        if view == "MLO":
-            preds_dict_mlo[pred_id].append(pred)
-        elif view == "CC":
-            preds_dict_cc[pred_id].append(pred)
-        else:
-            preds_dict_mlo[pred_id].append(pred)
-            preds_dict_cc[pred_id].append(pred)
-        targ_dict[pred_id].append(target)
-    
-    agg_labels, agg_preds = [], []
-    for pred_id in targ_dict:
-        mlo_mean = np.mean(preds_dict_mlo[pred_id])
-        cc_mean = np.mean(preds_dict_cc[pred_id])
-        agg_preds.append(np.max([mlo_mean, cc_mean]))
-        agg_labels.append(targ_dict[pred_id][0])
+    df_test = pd.DataFrame({"prediction_id": ids, "view": views, "cancer": list(preds), "target": list(labels)})
+    df_sub = df_test.groupby(["prediction_id", "view"])[["cancer"]].mean()
+    df_trg = df_test.groupby(["prediction_id", "view"])[["target"]].max()
+    df_sub = df_sub.groupby("prediction_id")[["cancer"]].max()
+    df_trg = df_trg.groupby("prediction_id")[["target"]].max()
+    agg_labels = df_trg.target.tolist()
+    agg_preds = df_sub.cancer.tolist()
     agg_labels, agg_preds = np.array(agg_labels), np.array(agg_preds)
     return agg_labels, agg_preds
 
@@ -101,11 +84,6 @@ def save_pickle(name, data):
         pickle.dump(data, f)
 
 def calc_all_metrics(labels, preds, ids, views, beta=1):
-    # save_pickle("labels", labels)
-    # save_pickle("preds", preds)
-    # save_pickle("ids", ids)
-    # save_pickle("views", views)
-
     # agg_labels, agg_preds = agg_custom_1(labels, preds, ids, views)
     agg_labels, agg_preds = agg_default(labels, preds, ids, views)
 

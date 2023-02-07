@@ -23,12 +23,17 @@ class RandomPatchDataset(BreastCancer):
             self.patches = self.read_patches(self.config.patch_path, extra=True)
             self.target_patches = self.read_patches(self.config.trg_patch_path, extra=False)
 
+    def is_ddcm(self, path):
+        if "/" in path:
+            path = os.path.split(path)[1]
+        return "img" in path
+
     def read_patches(self, patch, extra):
-        patches = glob.glob(f"{patch}/*png")
+        patches = glob.glob(f"{patch}/*")
         site_patches = [[], []]
         for patch in patches:
             name = os.path.split(patch)[1]
-            if extra and "img" in name:
+            if extra and self.is_ddcm(name):
                 site_patches[0].append(patch)
                 site_patches[1].append(patch)
             else:
@@ -52,7 +57,7 @@ class RandomPatchDataset(BreastCancer):
         if degree is not None:
             patch = cv2.rotate(patch, degree)
 
-        if self.fda:
+        if aug is not None:
             patch = aug(image=patch)["image"]
         pth, ptw = patch.shape[:2]
         pth = int(pth * np.random.uniform(0.5, 1.75))
@@ -73,13 +78,14 @@ class RandomPatchDataset(BreastCancer):
         return img
 
     def insert_patches(self, img, laterality, site_id, patches):
-        patches = [np.random.choice(patches[site_id - 1])]
-        # patches = np.random.choice(patches[site_id - 1], size=np.random.randint(1, 2))
-        if self.fda:
-            trgt_pth = np.random.choice(self.target_patches[site_id - 1])
-            trgt = cv2.imread(trgt_pth)
-            aug = A.PixelDistributionAdaptation([trgt], blend_ratio=(1.0, 1.0), p=1, read_fn=lambda x: x)
+        # patches = [np.random.choice(patches[site_id - 1])]
+        patches = np.random.choice(patches[site_id - 1], size=np.random.randint(1, 3))
         for patch_path in patches:
+            aug = None
+            if self.fda and self.is_ddcm(patch_path):
+                trgt_pth = np.random.choice(self.target_patches[site_id - 1])
+                trgt = cv2.imread(trgt_pth)
+                aug = A.PixelDistributionAdaptation([trgt], blend_ratio=(1.0, 1.0), p=1, read_fn=lambda x: x)
             img = self.insert_patch(img, patch_path, laterality, aug)
         return img
 

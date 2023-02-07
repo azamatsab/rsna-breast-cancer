@@ -19,25 +19,29 @@ class RandomPatchDataset(BreastCancer):
         if self.config.patch_prob > 0:
             logging.info("##### Training using patches")
 
-        self.patches = self.read_patches(self.config.patch_path)
-        self.neg_patches = self.read_patches(self.config.neg_patch_path)
-        
-    def read_patches(self, patch):
+        if train:
+            self.patches = self.read_patches(self.config.patch_path, extra=True)
+            self.target_patches = self.read_patches(self.config.trg_patch_path, extra=False)
+
+    def read_patches(self, patch, extra):
         patches = glob.glob(f"{patch}/*png")
         site_patches = [[], []]
         for patch in patches:
             name = os.path.split(patch)[1]
-            if name in set(self.siteid1):
+            if extra and "img" in name:
                 site_patches[0].append(patch)
-            elif name in set(self.siteid2):
                 site_patches[1].append(patch)
+            else:
+                if name in set(self.siteid1):
+                    site_patches[0].append(patch)
+                elif name in set(self.siteid2):
+                    site_patches[1].append(patch)
 
         logging.info(f"Patch size for site id 1: {len(site_patches[0])}")
         logging.info(f"Patch size for site id 2: {len(site_patches[1])}")
         return site_patches
 
-    # TODO: Center crop
-    def insert_patch(self, img, patch_path, laterality):
+    def insert_patch(self, img, patch_path, laterality, aug):
         imh, imw = img.shape[:2]
         pad_h = imh // 6
         pad_x = imw // 3
@@ -72,9 +76,11 @@ class RandomPatchDataset(BreastCancer):
         patches = [np.random.choice(patches[site_id - 1])]
         # patches = np.random.choice(patches[site_id - 1], size=np.random.randint(1, 2))
         if self.fda:
-            aug = A.Compose([A.FDA([img], p=1, read_fn=lambda x: x)])
+            trgt_pth = np.random.choice(self.target_patches[site_id - 1])
+            trgt = cv2.imread(trgt_pth)
+            aug = A.PixelDistributionAdaptation([trgt], blend_ratio=(1.0, 1.0), p=1, read_fn=lambda x: x)
         for patch_path in patches:
-            img = self.insert_patch(img, patch_path, laterality)
+            img = self.insert_patch(img, patch_path, laterality, aug)
         return img
 
     def center_crop(self, img):
@@ -96,15 +102,13 @@ class RandomPatchDataset(BreastCancer):
         if self.keep_ratio:
             img = pad(img, self.input_size)
 
-        if self.train and np.random.uniform(0, 1) <= self.config.crop_prob:
+        if self.train and np.random.uniform(0, 1) < self.config.crop_prob:
             img = self.center_crop(img)
 
         if self.train and target == 0:
-            if np.random.uniform(0, 1) <= self.config.patch_prob:
+            if np.random.uniform(0, 1) < self.config.patch_prob:
                 target = 1
                 img = self.insert_patches(img, laterality, site_id, self.patches)
-            elif np.random.uniform(0, 1) <= self.config.neg_patch_prob:
-                img = self.insert_patches(img, laterality, site_id, self.neg_patches)
 
         if self.transform is not None:
             try:

@@ -19,6 +19,8 @@ class RandomPatchDataset(BreastCancer):
         if self.config.patch_prob > 0:
             logging.info("##### Training using patches")
 
+        self.patch_prob = self.config.patch_prob
+
         if train:
             self.patches = self.read_patches(self.config.patch_path, extra=True)
             self.target_patches = self.read_patches(self.config.trg_patch_path, extra=False)
@@ -69,7 +71,7 @@ class RandomPatchDataset(BreastCancer):
             ptw = imw - pad_x - 1
 
         y = np.random.randint(pad_h, imh - pth - pad_h)
-        if "R" in laterality:
+        if laterality == "R":
             x = np.random.randint(pad_x, imw - ptw)
         else:
             x = np.random.randint(0, imw - ptw - pad_x)
@@ -97,10 +99,9 @@ class RandomPatchDataset(BreastCancer):
         y0 = (imh - new_imh) // 2
         return img[y0:y0 + new_imh, x0:x0 + new_imw]
 
-    def __getitem__(self, index):
+    def get(self, index, patch_prob):
         path = self.image_paths[index]
         target = self.targets[index]
-        pred_id = self.prediction_id[index]
         laterality = self.laterality[index]
         site_id = self.site_ids[index]
 
@@ -112,9 +113,53 @@ class RandomPatchDataset(BreastCancer):
             img = self.center_crop(img)
 
         if self.train and target == 0:
-            if np.random.uniform(0, 1) < self.config.patch_prob:
+            if np.random.uniform(0, 1) < patch_prob:
                 target = 1
                 img = self.insert_patches(img, laterality, site_id, self.patches)
+        return img, target
+
+    def merge_hor(self, img0, img1):
+        h = img0.shape[0]
+        img0[h // 2: ] = img1[h // 2: ]
+        return img0
+
+    def merge_diagonal(self, img0, img1):
+        combined = np.ones_like(img0) * 255
+        angle = -45
+        lower_intersection = 0.2
+
+        y, x, _ = img1.shape
+
+        yy, xx = np.mgrid[:y, :x]
+        img0_positions = (xx - lower_intersection * x) * np.tan(angle) > (yy - y)
+        img1_positions = (xx - lower_intersection * x) * np.tan(angle) < (yy - y)
+
+        combined[img0_positions] = img0[img0_positions]
+        combined[img1_positions] = img1[img1_positions]
+        return combined
+
+    def merge(self, img0, img1):
+        h, w, _ = img0.shape
+        img0 = cv2.resize(img0, (h, h))
+        img1 = cv2.resize(img1, (h, h))
+        if np.random.uniform(0, 1) < 0.5:
+            img = self.merge_hor(img0, img1)
+        else:
+            img = self.merge_diagonal(img0, img1)
+        img = cv2.resize(img, (w, h))
+        return img
+
+    def __getitem__(self, index):
+        img, target = self.get(index, self.patch_prob)
+        if self.train and np.random.uniform(0, 1) < 0.5:
+            if target == 1:
+                img_, target_ = self.get(np.random.randint(len(self.image_paths)), 2)
+                assert target == target_, (target, target_)
+                img = self.merge(img, img_)
+            else:
+                img_, target_ = self.get(np.random.randint(len(self.image_paths)), -1)
+                if target_ == 0:
+                    img = self.merge(img, img_)
 
         if self.transform is not None:
             try:
@@ -122,7 +167,7 @@ class RandomPatchDataset(BreastCancer):
             except Exception as err:
                 logging.error(f"Error Occured: {err}, {path}")
 
-        out = {"img": sample, "target": target, "pred_id": pred_id, "view": self.views[index]}
+        out = {"img": sample, "target": target, "pred_id": self.prediction_id[index], "view": self.views[index]}
         if self.is_cam:
             out["bgr"] = cv2.resize(img, self.input_size)
             out["path"] = path

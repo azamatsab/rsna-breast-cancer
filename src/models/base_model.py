@@ -55,7 +55,7 @@ class BaseModel:
                 A.VerticalFlip(p=0.5),
                 # HueSaturationValue(p=0.6),
                 # RandomBrightness(p=0.7),
-                ShiftScaleRotate(p=0.9),
+                ShiftScaleRotate(scale_limit=0, p=0.1),
                 # RandomGamma(p=0.4),
                 Cutout(**self.config.cutout),
                 Normalize(p=1),

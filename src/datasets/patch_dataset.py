@@ -25,6 +25,20 @@ class RandomPatchDataset(BreastCancer):
             self.patches = self.read_patches(self.config.patch_path, extra=True)
             self.target_patches = self.read_patches(self.config.trg_patch_path, extra=False)
 
+        self.patch_transform = A.Compose([
+                                    A.OneOf([ 
+                                            A.RandomContrast(),
+                                            A.RandomGamma(),
+                                            A.RandomBrightness(),
+                                            ], p=0.3),
+                                    A.OneOf([
+                                            A.ElasticTransform(alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03),
+                                            A.GridDistortion(),
+                                            A.OpticalDistortion(distort_limit=2, shift_limit=0.5),
+                                            ], p=0.3),
+                                ], p=1
+                                )
+
     def is_ddcm(self, path):
         if "/" in path:
             path = os.path.split(path)[1]
@@ -48,12 +62,11 @@ class RandomPatchDataset(BreastCancer):
         logging.info(f"Patch size for site id 2: {len(site_patches[1])}")
         return site_patches
 
-    def insert_patch(self, img, patch_path, laterality, aug):
+    def insert_patch(self, img, patch, laterality, aug):
         imh, imw = img.shape[:2]
         pad_h = imh // 6
         pad_x = imw // 3
 
-        patch = cv2.imread(patch_path)
         flags = [None, cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_180, cv2.ROTATE_90_COUNTERCLOCKWISE]
         degree = np.random.choice(flags)
         if degree is not None:
@@ -62,8 +75,11 @@ class RandomPatchDataset(BreastCancer):
         if aug is not None:
             patch = aug(image=patch)["image"]
         pth, ptw = patch.shape[:2]
-        pth = int(pth * np.random.uniform(0.5, 1.75))
-        ptw = int(ptw * np.random.uniform(0.5, 1.75))
+
+        scale1 = np.random.uniform(0.5, 1.75)
+        scale2 = np.random.uniform(0.5, 1.75)
+        pth = min(256, int(pth * scale1))
+        ptw = min(256, int(ptw * scale1))
 
         if pth >= imh - 2 * pad_h:
             pth = imh - 2 * pad_h - 1
@@ -80,15 +96,23 @@ class RandomPatchDataset(BreastCancer):
         return img
 
     def insert_patches(self, img, laterality, site_id, patches):
-        # patches = [np.random.choice(patches[site_id - 1])]
-        patches = np.random.choice(patches[site_id - 1], size=np.random.randint(1, 3))
-        for patch_path in patches:
+        patches = np.random.choice(patches[site_id - 1], size=np.random.randint(6, 12))
+        single_patches = patches[: len(patches) // 2]
+        double_patches = patches[len(patches) // 2:]
+        patch_imgs = [cv2.imread(path) for path in single_patches]
+        for ind in range(0, len(double_patches) - 1, 2):
+            patch1 = cv2.imread(double_patches[ind])
+            patch2 = cv2.imread(double_patches[ind + 1])
+            merged = self.merge(patch1, patch2)
+            patch_imgs.append(merged)
+            # cv2.imwrite(f"{ind}.png", merged)
+
+        for patch in patch_imgs:
             aug = None
-            if self.fda and self.is_ddcm(patch_path):
-                trgt_pth = np.random.choice(self.target_patches[site_id - 1])
-                trgt = cv2.imread(trgt_pth)
-                aug = A.PixelDistributionAdaptation([trgt], blend_ratio=(1.0, 1.0), p=1, read_fn=lambda x: x)
-            img = self.insert_patch(img, patch_path, laterality, aug)
+            if self.config.patch_aug:
+                patch = self.patch_transform(image=patch)["image"]
+            img = self.insert_patch(img, patch, laterality, aug)
+        # cv2.imwrite("result.png", img)
         return img
 
     def center_crop(self, img):
@@ -118,6 +142,21 @@ class RandomPatchDataset(BreastCancer):
                 img = self.insert_patches(img, laterality, site_id, self.patches)
         return img, target
 
+    def __getitem__(self, index):
+        img, target = self.get(index, self.patch_prob)
+
+        if self.transform is not None:
+            try:
+                sample = self.transform(image=img)["image"]
+            except Exception as err:
+                logging.error(f"Error Occured: {err}")
+
+        out = {"img": sample, "target": target, "pred_id": self.prediction_id[index], "view": self.views[index]}
+        if self.is_cam:
+            out["bgr"] = cv2.resize(img, self.input_size)
+            out["path"] = path
+        return out
+
     def merge_hor(self, img0, img1):
         h = img0.shape[0]
         img0[h // 2: ] = img1[h // 2: ]
@@ -140,8 +179,9 @@ class RandomPatchDataset(BreastCancer):
 
     def merge(self, img0, img1):
         h, w, _ = img0.shape
-        img0 = cv2.resize(img0, (h, h))
-        img1 = cv2.resize(img1, (h, h))
+        max_len = max(w, h)
+        img0 = cv2.resize(img0, (max_len, max_len))
+        img1 = cv2.resize(img1, (max_len, max_len))
         if np.random.uniform(0, 1) < 0.5:
             img = self.merge_hor(img0, img1)
         else:
@@ -149,29 +189,14 @@ class RandomPatchDataset(BreastCancer):
         img = cv2.resize(img, (w, h))
         return img
 
-    def __getitem__(self, index):
-        img, target = self.get(index, self.patch_prob)
-        if self.train and np.random.uniform(0, 1) < 0.5:
-            if target == 1:
-                img_, target_ = self.get(np.random.randint(len(self.image_paths)), 2)
-                assert target == target_, (target, target_)
-                img = self.merge(img, img_)
-            else:
-                img_, target_ = self.get(np.random.randint(len(self.image_paths)), -1)
-                if target_ == 0:
-                    img = self.merge(img, img_)
-
-        if self.transform is not None:
-            try:
-                sample = self.transform(image=img)["image"]
-            except Exception as err:
-                logging.error(f"Error Occured: {err}, {path}")
-
-        out = {"img": sample, "target": target, "pred_id": self.prediction_id[index], "view": self.views[index]}
-        if self.is_cam:
-            out["bgr"] = cv2.resize(img, self.input_size)
-            out["path"] = path
-        return out
+    def unpad_patch(self, img):
+        h, w, _ = img.shape
+        pad = 20
+        if h > 4 * pad:
+            y1, y2 = pad, h - pad
+        if w > 4 * pad:
+            x1, x2 = pad, w - pad
+        return img[y1:y2, x1:x2]
 
 
 class PatchDataset(BreastCancer):

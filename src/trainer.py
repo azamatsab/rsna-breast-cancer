@@ -24,16 +24,17 @@ CONFIG = "train_configs.yml"
 
 
 class Trainer:
-    def __init__(self, model, config):
+    def __init__(self, model, config, train_mode=False):
         self.model = model
         self.config = config
         self.criterion = self.model.criterion
         self.optimizer = self.model.optimizer
         self.scheduler = self.model.scheduler
         self.accum_iter = config.accum_iter
-        self.res_path, self.weights_path = self.create_result_dir()
-        self.dump_configs()
-        logging.getLogger().addHandler(logging.FileHandler(os.path.join(self.res_path, "log.txt")))
+        if train_mode:
+            self.res_path, self.weights_path = self.create_result_dir()
+            self.dump_configs()
+            logging.getLogger().addHandler(logging.FileHandler(os.path.join(self.res_path, "log.txt")))
 
         self.scaler = GradScaler()
 

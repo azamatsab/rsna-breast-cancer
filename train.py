@@ -25,7 +25,7 @@ def setup_parser(parser):
     parser.add_argument("--cam", default=0, help="use grad-cam on the val dataset", dest="cam")
     parser.add_argument(
         "--weights",
-        default="outputs/tf_efficientnetv2_m/3_0/weights/f0_v2m_swa.pth",
+        default="outputs/tf_efficientnetv2_l/4_3/weights/v2l_f3_8model_swa.pth",
         help="model weights path",
         dest="weights",
     )
@@ -73,5 +73,5 @@ if __name__ == "__main__":
         if args.resume:
             model.load(args.weights)
 
-        trainer = Trainer(model, config)
+        trainer = Trainer(model, config, train_mode=True)
         trainer.run(train_loader, test_loader)

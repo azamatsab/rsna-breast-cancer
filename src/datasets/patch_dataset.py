@@ -79,7 +79,7 @@ class RandomPatchDataset(BreastCancer):
         scale1 = np.random.uniform(0.5, 1.75)
         scale2 = np.random.uniform(0.5, 1.75)
         pth = min(256, int(pth * scale1))
-        ptw = min(256, int(ptw * scale1))
+        ptw = min(256, int(ptw * scale2))
 
         if pth >= imh - 2 * pad_h:
             pth = imh - 2 * pad_h - 1

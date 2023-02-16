@@ -23,7 +23,6 @@ class RandomPatchDataset(BreastCancer):
 
         if train:
             self.patches = self.read_patches(self.config.patch_path, extra=True)
-            self.target_patches = self.read_patches(self.config.trg_patch_path, extra=False)
 
         self.patch_transform = A.Compose([
                                     A.OneOf([ 
@@ -92,20 +91,29 @@ class RandomPatchDataset(BreastCancer):
         else:
             x = np.random.randint(0, imw - ptw - pad_x)
 
-        img[y: y + pth, x : x + ptw] = cv2.resize(patch, (ptw, pth))
+        patch = cv2.resize(patch, (ptw, pth))
+        alpha_s = patch[:, :, 3] / 255.0
+        alpha_l = 1.0 - alpha_s
+
+        for c in range(0, 3):
+            img[y:y + pth, x:x + ptw, c] = (alpha_s * patch[:, :, c] +
+                                    alpha_l * img[y:y + pth, x:x + ptw, c])
+
         return img
 
     def insert_patches(self, img, laterality, site_id, patches):
-        patches = np.random.choice(patches[site_id - 1], size=np.random.randint(4, 8))
-        single_patches = patches[: len(patches) // 2]
-        double_patches = patches[len(patches) // 2:]
-        patch_imgs = [cv2.imread(path) for path in single_patches]
-        for ind in range(0, len(double_patches) - 1, 2):
-            patch1 = cv2.imread(double_patches[ind])
-            patch2 = cv2.imread(double_patches[ind + 1])
-            merged = self.merge(patch1, patch2)
-            patch_imgs.append(merged)
-            # cv2.imwrite(f"{ind}.png", merged)
+        low, high = self.config.patch_num
+        single_patches = np.random.choice(patches[site_id - 1], size=np.random.randint(low, high))
+        patch_imgs = [cv2.imread(path, -1) for path in single_patches]
+        
+        if len(self.config.double_patch_num) == 2:
+            low, high = self.config.double_patch_num
+            double_patches = np.random.choice(patches[site_id - 1], size=np.random.randint(low, high))
+            for ind in range(0, len(double_patches) - 1, 2):
+                patch1 = cv2.imread(double_patches[ind], -1)
+                patch2 = cv2.imread(double_patches[ind + 1], -1)
+                merged = self.merge(patch1, patch2)
+                patch_imgs.append(merged)
 
         for patch in patch_imgs:
             aug = None

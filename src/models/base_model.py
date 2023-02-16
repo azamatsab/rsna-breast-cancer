@@ -55,7 +55,17 @@ class BaseModel:
                 A.VerticalFlip(p=0.5),
                 # HueSaturationValue(p=0.6),
                 # RandomBrightness(p=0.7),
-                ShiftScaleRotate(scale_limit=0, p=0.1),
+                ShiftScaleRotate(scale_limit=0, p=0.5),
+                # A.OneOf([ 
+                #         A.RandomContrast(),
+                #         A.RandomGamma(),
+                #         A.RandomBrightness(),
+                #         ], p=0.8),
+                # A.OneOf([
+                #         A.ElasticTransform(alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03),
+                #         A.GridDistortion(),
+                #         A.OpticalDistortion(distort_limit=2, shift_limit=0.5),
+                #         ], p=0.8),
                 # RandomGamma(p=0.4),
                 Cutout(**self.config.cutout),
                 Normalize(p=1),

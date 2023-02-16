@@ -30,12 +30,12 @@ class RandomPatchDataset(BreastCancer):
                                             A.RandomContrast(),
                                             A.RandomGamma(),
                                             A.RandomBrightness(),
-                                            ], p=0.3),
+                                            ], p=0.95),
                                     A.OneOf([
                                             A.ElasticTransform(alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03),
                                             A.GridDistortion(),
                                             A.OpticalDistortion(distort_limit=2, shift_limit=0.5),
-                                            ], p=0.3),
+                                            ], p=0.95),
                                 ], p=1
                                 )
 
@@ -96,7 +96,7 @@ class RandomPatchDataset(BreastCancer):
         return img
 
     def insert_patches(self, img, laterality, site_id, patches):
-        patches = np.random.choice(patches[site_id - 1], size=np.random.randint(6, 12))
+        patches = np.random.choice(patches[site_id - 1], size=np.random.randint(4, 8))
         single_patches = patches[: len(patches) // 2]
         double_patches = patches[len(patches) // 2:]
         patch_imgs = [cv2.imread(path) for path in single_patches]

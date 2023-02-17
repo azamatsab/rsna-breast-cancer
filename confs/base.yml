@@ -1,11 +1,11 @@
 model: TimmModel
 experiment_name: "tf_efficientnetv2_m"
-exp_number: 0
-fold: 1
+exp_number: 25
+fold: 3
 dataset: RandomPatchDataset
-patch_path: can_cam_masks
-patch_num: [2, 4]
-double_patch_num: [1, 2]
+patch_path: /data/images/can_cam_masks
+patch_num: []           # empty means 1 
+double_patch_num: []    # empty means 0
 # site_id: 2
 
 device: cuda
@@ -34,20 +34,17 @@ scheduler_batch_step: 1
 calculate_metric_step: 1
 pos_weight: 1.0
 ohem_ratio: 1.0
-num_workers: 32
+num_workers: 16
 balance: 0
 balanced_batch: 0
-upsample: 5
+upsample: 10
+hard_upsample: 30
 thresh: 0.5
 
 csv_path: train.csv
 root_path: /data/aza_s
-ds_path: /data/aza_s/rsna_breast_cancer/ims_2048/data/new_roi_train_images
+ds_path: /data/images/new_roi_train_images
 
-ext_dataset: False
-ext_ds_root: "/data/zhan/compets/rsna_breast/data/TheChineseMammographyDatabase/ROI"
-pretrain: False
-finetune: False
 default_age: 40
 
 # Mixup
@@ -65,5 +62,6 @@ cutout: {
 
 fda: 0
 patch_prob: 0.5
-crop_prob: 0.0
+neg_patch_prob: -1
+crop_prob: -1
 patch_aug: 1

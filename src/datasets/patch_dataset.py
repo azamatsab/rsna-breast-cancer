@@ -22,7 +22,7 @@ class RandomPatchDataset(BreastCancer):
         self.patch_prob = self.config.patch_prob
 
         if train:
-            self.patches = self.read_patches(self.config.patch_path, extra=True)
+            self.patches = self.read_patches(self.config.patch_path)
 
         self.patch_transform = A.Compose([
                                     A.OneOf([ 
@@ -38,24 +38,49 @@ class RandomPatchDataset(BreastCancer):
                                 ], p=1
                                 )
 
-    def is_ddcm(self, path):
-        if "/" in path:
-            path = os.path.split(path)[1]
-        return "img" in path
+    def balancing(self, dataframe, config, train):
+        image_id = dataframe.image_id.tolist()
+        patient_id = dataframe.patient_id.tolist()
+        image_paths_ = [f"{pid}_{iid}.png" for pid, iid in zip(patient_id, image_id)]
+        dataframe["img_name"] = image_paths_
+        if train and config.upsample:
+            patches = glob.glob(f"{self.config.patch_path}/*")
+            patches = set([os.path.split(patch)[1] for patch in patches])
+            df_1 = dataframe[dataframe.cancer == 1]
+            df_0 = dataframe[dataframe.cancer == 0]
 
-    def read_patches(self, patch, extra):
+            df1_easy = df_1[df_1["img_name"].isin(patches)]
+            df1_hard = df_1[~df_1["img_name"].isin(patches)]
+            logging.info(f"Easy examples: {len(df1_easy)}")
+            logging.info(f"Hard examples: {len(df1_hard)}")
+
+            df_list = []
+            for i in range(config.upsample):
+                df_list.append(df1_easy)
+                new_pid = map(lambda x: str(x) + "_" + str(i), df1_easy.laterality.tolist())
+                df1_easy["laterality"] = list(new_pid)
+            for i in range(config.hard_upsample):
+                df_list.append(df1_hard)
+                new_pid = map(lambda x: str(x) + "_" + str(i), df1_hard.laterality.tolist())
+                df1_hard["laterality"] = list(new_pid)
+
+            dataframe = pd.concat(df_list + [df_0])
+        if train and config.balance:
+            df_1 = dataframe[dataframe.cancer == 1]
+            df_0 = dataframe[dataframe.cancer == 0]
+            df_0 = df_0.sample(len(df_1) * config.balance)
+            dataframe = pd.concat([df_0, df_1])
+        return dataframe
+
+    def read_patches(self, patch):
         patches = glob.glob(f"{patch}/*")
         site_patches = [[], []]
         for patch in patches:
             name = os.path.split(patch)[1]
-            if extra and self.is_ddcm(name):
+            if name in set(self.siteid1):
                 site_patches[0].append(patch)
+            elif name in set(self.siteid2):
                 site_patches[1].append(patch)
-            else:
-                if name in set(self.siteid1):
-                    site_patches[0].append(patch)
-                elif name in set(self.siteid2):
-                    site_patches[1].append(patch)
 
         logging.info(f"Patch size for site id 1: {len(site_patches[0])}")
         logging.info(f"Patch size for site id 2: {len(site_patches[1])}")
@@ -102,10 +127,14 @@ class RandomPatchDataset(BreastCancer):
         return img
 
     def insert_patches(self, img, laterality, site_id, patches):
-        low, high = self.config.patch_num
-        single_patches = np.random.choice(patches[site_id - 1], size=np.random.randint(low, high))
+        if len(self.config.patch_num) == 2:
+            low, high = self.config.patch_num
+            single_patches = np.random.choice(patches[site_id - 1], size=np.random.randint(low, high))
+        else:
+            single_patches = [np.random.choice(patches[site_id - 1])]
+
         patch_imgs = [cv2.imread(path, -1) for path in single_patches]
-        
+
         if len(self.config.double_patch_num) == 2:
             low, high = self.config.double_patch_num
             double_patches = np.random.choice(patches[site_id - 1], size=np.random.randint(low, high))
@@ -120,7 +149,6 @@ class RandomPatchDataset(BreastCancer):
             if self.config.patch_aug:
                 patch = self.patch_transform(image=patch)["image"]
             img = self.insert_patch(img, patch, laterality, aug)
-        # cv2.imwrite("result.png", img)
         return img
 
     def center_crop(self, img):

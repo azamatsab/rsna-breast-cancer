@@ -103,7 +103,7 @@ class Trainer:
             running_loss.add(loss, labels.shape[0])
 
             pred, labels = self.model.binarize(outputs, labels, self.config["thresh"])
-            metrics.add(pred, labels, data["pred_id"])
+            metrics.add(pred, labels, data["pred_id"], data["view"], data["site_id"])
 
             if batch_idx >= self.config.epoch_len:
                 break

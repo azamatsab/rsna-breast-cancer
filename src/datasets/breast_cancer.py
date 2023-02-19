@@ -38,7 +38,6 @@ class BreastCancer(torch.utils.data.Dataset):
         # dataframe = dataframe[dataframe.cancer == 0]
 
         dataframe = self.balancing(dataframe, config, train)
-        dataframe = self.pretrain_finetune(dataframe, config, train)
         image_id = dataframe.image_id.tolist()
         patient_id = dataframe.patient_id.tolist()
         laterality = dataframe.laterality.tolist()
@@ -63,7 +62,6 @@ class BreastCancer(torch.utils.data.Dataset):
         self.img_path = os.path.join(config.root_path, config.ds_path)
         self.keep_ratio = config.keep_ratio
 
-        self.add_ext_dataset(train, config)
         self.config = config
 
         logging.info(f"Disease: {self.targets.count(1)}; Safe: {self.targets.count(0)}")
@@ -86,28 +84,6 @@ class BreastCancer(torch.utils.data.Dataset):
             df_0 = dataframe[dataframe.cancer == 0]
             df_0 = df_0.sample(len(df_1) * config.balance)
             dataframe = pd.concat([df_0, df_1])
-        return dataframe
-
-    def add_ext_dataset(self, train, config):
-        if train and config.ext_dataset:
-            ext_df = pd.read_csv(config.ext_dataset)
-            ext_ds_root = config.ext_ds_root
-            ext_ds_paths = [os.path.join(ext_ds_root, path) for path in ext_df.path_img.tolist()]
-            self.image_paths += ext_ds_paths
-            self.targets += [1] * len(ext_ds_paths)
-            self.prediction_id += ext_df.path_img.tolist()
-            self.laterality += ["R"] * len(ext_ds_paths)
-            logging.info(f"{len(ext_ds_paths)} external dataset images was added")
-
-    def pretrain_finetune(self, dataframe, config, train):
-        if train:
-            portion = 5000 
-            if config.pretrain:
-                dataframe = dataframe[dataframe.cancer == 0]
-                dataframe = dataframe.iloc[0:portion]
-                
-            elif config.finetune:
-                dataframe = dataframe.iloc[portion:len(dataframe)]
         return dataframe
 
     def __len__(self):

@@ -18,7 +18,7 @@ class RandomPatchDataset(BreastCancer):
         super().__init__(dataframe, config, transform, train)
         if self.config.patch_prob > 0:
             logging.info("##### Training using patches")
-        patches = glob.glob("can_cam/*png")
+        patches = glob.glob("can_cam/*") + glob.glob("can_cam_masks/*") + glob.glob("hard_patches/*")
         self.patches = [[], []]
         for patch in patches:
             name = os.path.split(patch)[1]
@@ -37,8 +37,11 @@ class RandomPatchDataset(BreastCancer):
         imh, imw = img.shape[:2]
         pad_h = imh // 6
         pad_x = imw // 3
-        for patch in patches:
-            patch = cv2.imread(patch)
+        for patch_pth in patches:
+            if "can_cam_masks" in patch_pth:
+                patch = cv2.imread(patch_pth, -1)
+            else:
+                patch = cv2.imread(patch_pth)
             if self.fda:
                 patch = aug(image=patch)["image"]
             pth, ptw = patch.shape[:2]
@@ -56,8 +59,17 @@ class RandomPatchDataset(BreastCancer):
             else:
                 x = np.random.randint(0, imw - ptw - pad_x)
 
-            img[y: y + pth, x : x + ptw] = cv2.resize(patch, (ptw, pth))
-        # cv2.imwrite(f"{np.random.randint(1, 10)}_{laterality}.png", img)
+            if "can_cam_masks" not in patch_pth:
+                img[y: y + pth, x : x + ptw] = cv2.resize(patch, (ptw, pth))
+            else:
+                patch = cv2.resize(patch, (ptw, pth))
+                alpha_s = patch[:, :, 3] / 255.0
+                alpha_l = 1.0 - alpha_s
+
+                for c in range(0, 3):
+                    img[y:y + pth, x:x + ptw, c] = (alpha_s * patch[:, :, c] +
+                                            alpha_l * img[y:y + pth, x:x + ptw, c])
+        # cv2.imwrite(f"{np.random.randint(1, 100)}_{laterality}.png", img)
         return img
 
     def __getitem__(self, index):
@@ -81,7 +93,7 @@ class RandomPatchDataset(BreastCancer):
             except Exception as err:
                 logging.error(f"Error Occured: {err}, {path}")
 
-        out = {"img": sample, "target": target, "pred_id": pred_id}
+        out = {"img": sample, "target": target, "pred_id": pred_id, "site_id": site_id, "view": self.views[index]}
         if self.is_cam:
             out["bgr"] = cv2.resize(img, self.input_size)
             out["path"] = path

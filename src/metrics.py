@@ -1,7 +1,9 @@
+import pickle
 from collections import OrderedDict
 
 from sklearn import metrics
 import numpy as np
+import pandas as pd
 
 
 def pfbeta_np(labels, preds, beta=1):
@@ -46,7 +48,6 @@ def get_best_f1(labels, preds, beta=1):
     res = OrderedDict(
         [
             ("F1", round(best_score, 4)),
-            ("percentile", round(best_perc, 4)),
             ("thresh", round(best_thr, 4)),
             ("ROC_AUC", round(roc_auc, 4)),
             ("rec_1", round(rec_1, 4)),
@@ -56,19 +57,34 @@ def get_best_f1(labels, preds, beta=1):
 
     return res
 
-def cacl_all_metrics(labels, preds, ids, beta=1):
-    preds_dict = {pred_id: [] for pred_id in ids}
-    targ_dict = {pred_id: [] for pred_id in ids}
+def agg_default(df_test):
+    df_sub = df_test.groupby("prediction_id")[["cancer"]].mean()
+    df_trg = df_test.groupby("prediction_id")[["target"]].mean()
+    agg_labels = df_trg.target.tolist()
+    agg_preds = df_sub.cancer.tolist()
 
-    for pred_id, pred, target in zip(ids, preds, labels):
-        preds_dict[pred_id].append(pred)
-        targ_dict[pred_id].append(target)
-    
-    agg_labels, agg_preds = [], []
-    for pred_id in ids:
-        agg_preds.append(np.mean(preds_dict[pred_id]))
-        agg_labels.append(targ_dict[pred_id][0])
     agg_labels, agg_preds = np.array(agg_labels), np.array(agg_preds)
+    return agg_labels, agg_preds
+
+def agg_custom_1(df_tests):
+    df_sub = df_test.groupby(["prediction_id", "view"])[["cancer"]].mean()
+    df_trg = df_test.groupby(["prediction_id", "view"])[["target"]].max()
+    df_sub = df_sub.groupby("prediction_id")[["cancer"]].max()
+    df_trg = df_trg.groupby("prediction_id")[["target"]].max()
+    agg_labels = df_trg.target.tolist()
+    agg_preds = df_sub.cancer.tolist()
+    agg_labels, agg_preds = np.array(agg_labels), np.array(agg_preds)
+    return agg_labels, agg_preds
+
+def save_pickle(name, data):
+    with open(f"{name}.pickle", "wb") as f:
+        pickle.dump(data, f)
+
+def calc_metrics(df_test, beta=1):
+    agg_labels, agg_preds = agg_default(df_test)
+
+    labels = np.array(df_test.target.tolist())
+    preds = np.array(df_test.cancer.tolist())
 
     res_single = get_best_f1(labels, preds, beta=1)
     res_agg = get_best_f1(agg_labels, agg_preds, beta=1)
@@ -78,6 +94,21 @@ def cacl_all_metrics(labels, preds, ids, beta=1):
         res_single[key + agg_str] = res_agg[key]
 
     return res_single
+
+def calc_all_metrics(df_test, beta=1):
+    overall = calc_metrics(df_test, beta)
+    site1 = calc_metrics(df_test[df_test.site_id == 1], beta)
+    site2 = calc_metrics(df_test[df_test.site_id == 2], beta)
+
+    agg_str = "s1_"
+    for key in site1:
+        overall[agg_str + key] = site1[key]
+
+    agg_str = "s2_"
+    for key in site2:
+        overall[agg_str + key] = site2[key]
+
+    return overall
 
 
 class AverageMeter:
@@ -112,10 +143,14 @@ class MetricCalculator:
         self.preds = []
         self.target = []
         self.ids = []
+        self.views = []
+        self.site_ids = []
 
-    def add(self, preds, target, ids):
+    def add(self, preds, target, ids, views, site_id):
         self.target.extend(target)
         self.ids.extend(ids)
+        self.views.extend(views)
+        self.site_ids.extend(site_id)
 
         if isinstance(preds, dict):
             if len(self.preds) == 0:
@@ -127,10 +162,6 @@ class MetricCalculator:
             self.preds.extend(preds)
 
     def get(self):
-        if isinstance(self.preds, dict):
-            result = OrderedDict()
-            for key in self.preds:
-                result[key] = cacl_all_metrics(np.array(self.target), np.array(self.preds[key], self.ids))
-        else:
-            result = cacl_all_metrics(np.array(self.target), np.array(self.preds), self.ids)
+        df_test = pd.DataFrame({"prediction_id": self.ids, "view": self.views, "cancer": self.preds, "target": self.target, "site_id": self.site_ids})
+        result = calc_all_metrics(df_test)
         return result
